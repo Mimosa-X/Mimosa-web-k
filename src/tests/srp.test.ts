@@ -100,7 +100,9 @@ async function serverAccepts(out: InputCheckPasswordSRP.inputCheckPasswordSRP, b
 
 test('makePasswordHash matches an independent Node-crypto reference', async() => {
   const ref = (() => {
-    const sha = (d: BinaryLike) => Uint8Array.from(nodeCrypto.createHash('sha256').update(d).digest());
+    // 将 BinaryLike 改为 Buffer，并使用 Buffer.from 处理任何输入
+    const sha = (d: Buffer | string | Uint8Array) => 
+      Uint8Array.from(nodeCrypto.createHash('sha256').update(Buffer.from(d as any)).digest());
     const cat = (...parts: Uint8Array[]) => {
       const out = new Uint8Array(parts.reduce((n, x) => n + x.length, 0));
       let off = 0;
