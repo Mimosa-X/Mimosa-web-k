@@ -235,7 +235,9 @@ export class Authorizer {
 
     const publicKey = await rsaKeysManager.select(auth.fingerprints);
     if(!publicKey) {
-      throw new Error('[MT] No public key found');
+      // 调试用：把服务端返回的 fingerprint 和实际连接的 transport URL 附带在报错里，便于排查
+      const transportUrl = (auth.transport as any)?.url ?? 'unknown';
+      throw new Error('[MT] No public key found, server fingerprints: ' + JSON.stringify(auth.fingerprints) + ', transportUrl: ' + transportUrl);
     }
 
     auth.publicKey = publicKey;

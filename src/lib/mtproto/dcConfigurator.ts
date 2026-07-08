@@ -32,6 +32,26 @@ const PREMIUM_SUFFIX = '_premium';
 const RETRY_TIMEOUT_CLIENT = 3000;
 const RETRY_TIMEOUT_DOWNLOAD = 3000;
 
+/**
+ * 自定义 DC 服务器配置。
+ * 当存在匹配项时，WebSocket / HTTP 传输会优先连接该地址，而不是 Telegram 官方服务器。
+ */
+const DC_OPTIONS = Modes.test ?
+  [
+    {id: 1, host: '154.36.167.246', port: 2398},
+    {id: 2, host: '154.36.167.246', port: 2398},
+    {id: 3, host: '154.36.167.246', port: 2398},
+    {id: 4, host: '154.36.167.246', port: 2398},
+    {id: 5, host: '154.36.167.246', port: 2398}
+  ] :
+  [
+    {id: 1, host: '154.36.167.246', port: 2398},
+    {id: 2, host: '154.36.167.246', port: 2398},
+    {id: 3, host: '154.36.167.246', port: 2398},
+    {id: 4, host: '154.36.167.246', port: 2398},
+    {id: 5, host: '154.36.167.246', port: 2398}
+  ];
+
 export function getTelegramConnectionSuffix(connectionType: ConnectionType) {
   return connectionType === 'client' ? '' : '-1';
 }
@@ -43,6 +63,14 @@ export function constructTelegramWebSocketUrl(dcId: DcId, connectionType: Connec
 
   const suffix = getTelegramConnectionSuffix(connectionType);
   const path = connectionType !== 'client' ? 'apiws' + TEST_SUFFIX + (premium ? PREMIUM_SUFFIX : '') : ('apiws' + TEST_SUFFIX);
+
+  // 优先使用自定义 DC 服务器
+  const customDc = DC_OPTIONS.find((option) => option.id === dcId);
+  if(customDc) {
+    const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+    return `${protocol}://${customDc.host}:${customDc.port}/${path}`;
+  }
+
   const chosenServer = `wss://${App.suffix.toLowerCase()}ws${dcId}${suffix}.web.telegram.org/${path}`;
 
   return chosenServer;
@@ -51,19 +79,7 @@ export function constructTelegramWebSocketUrl(dcId: DcId, connectionType: Connec
 export class DcConfigurator {
   private sslSubdomains = ['pluto', 'venus', 'aurora', 'vesta', 'flora'];
 
-  private dcOptions = Modes.test ?
-    [
-      {id: 1, host: '149.154.175.10',  port: 80},
-      {id: 2, host: '149.154.167.40',  port: 80},
-      {id: 3, host: '149.154.175.117', port: 80}
-    ] :
-    [
-      {id: 1, host: '149.154.175.50',  port: 80},
-      {id: 2, host: '149.154.167.50',  port: 80},
-      {id: 3, host: '149.154.175.100', port: 80},
-      {id: 4, host: '149.154.167.91',  port: 80},
-      {id: 5, host: '149.154.171.5',   port: 80}
-    ];
+  private dcOptions = DC_OPTIONS;
 
   public chosenServers: Servers = {} as any;
 
@@ -73,6 +89,9 @@ export class DcConfigurator {
     }
 
     const chosenServer = constructTelegramWebSocketUrl(dcId, connectionType, premium);
+    // 调试用：确认 WebSocket 实际连接地址
+    console.error('[DEBUG] WebSocket chosenServer:', chosenServer, 'dcId:', dcId, 'connectionType:', connectionType);
+
     const logSuffix = connectionType === 'upload' ? '-U' : connectionType === 'download' ? '-D' : '';
 
     const retryTimeout = connectionType === 'client' ? RETRY_TIMEOUT_CLIENT : RETRY_TIMEOUT_DOWNLOAD;
@@ -93,7 +112,13 @@ export class DcConfigurator {
     }
 
     let chosenServer: string;
-    if(Modes.ssl || !Modes.http) {
+
+    // 优先使用自定义 DC 服务器
+    const customDc = DC_OPTIONS.find((option) => option.id === dcId);
+    if(customDc) {
+      const protocol = location.protocol === 'https:' ? 'https' : 'http';
+      chosenServer = `${protocol}://${customDc.host}:${customDc.port}/apiw1`;
+    } else if(Modes.ssl || !Modes.http) {
       const suffix = getTelegramConnectionSuffix(connectionType);
       const subdomain = this.sslSubdomains[dcId - 1] + suffix;
       const path = Modes.test ? 'apiw_test1' : 'apiw1';
@@ -106,6 +131,9 @@ export class DcConfigurator {
         }
       }
     }
+
+    // 调试用：确认 HTTP 实际连接地址
+    console.error('[DEBUG] HTTP chosenServer:', chosenServer, 'dcId:', dcId, 'connectionType:', connectionType);
 
     const logSuffix = connectionType === 'upload' ? '-U' : connectionType === 'download' ? '-D' : '';
     return new HTTP(dcId, chosenServer, logSuffix);
