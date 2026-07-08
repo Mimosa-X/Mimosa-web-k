@@ -100,7 +100,7 @@ async function serverAccepts(out: InputCheckPasswordSRP.inputCheckPasswordSRP, b
 
 test('makePasswordHash matches an independent Node-crypto reference', async() => {
   const ref = (() => {
-    const sha = (d: any) => 
+    const sha = (d: any) =>
       Uint8Array.from(nodeCrypto.createHash('sha256').update(d).digest());
     const cat = (...parts: Uint8Array[]) => {
       const out = new Uint8Array(parts.reduce((n, x) => n + x.length, 0));

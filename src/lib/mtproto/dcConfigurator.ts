@@ -67,8 +67,11 @@ export function constructTelegramWebSocketUrl(dcId: DcId, connectionType: Connec
   // 优先使用自定义 DC 服务器
   const customDc = DC_OPTIONS.find((option) => option.id === dcId);
   if(customDc) {
-    const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-    return `${protocol}://${customDc.host}:${customDc.port}/${path}`;
+    const isHttps = location.protocol === 'https:';
+    const protocol = isHttps ? 'wss' : 'ws';
+    // HTTPS 页面必须通过同域 Nginx 代理访问后端 WebSocket，否则 Mixed Content 会拦截 ws://
+    const host = isHttps ? location.host : `${customDc.host}:${customDc.port}`;
+    return `${protocol}://${host}/${path}`;
   }
 
   const chosenServer = `wss://${App.suffix.toLowerCase()}ws${dcId}${suffix}.web.telegram.org/${path}`;
@@ -116,8 +119,11 @@ export class DcConfigurator {
     // 优先使用自定义 DC 服务器
     const customDc = DC_OPTIONS.find((option) => option.id === dcId);
     if(customDc) {
-      const protocol = location.protocol === 'https:' ? 'https' : 'http';
-      chosenServer = `${protocol}://${customDc.host}:${customDc.port}/apiw1`;
+      const isHttps = location.protocol === 'https:';
+      const protocol = isHttps ? 'https' : 'http';
+      // HTTPS 页面必须通过同域 Nginx 代理访问后端 HTTP，否则 Mixed Content 会拦截 http://
+      const host = isHttps ? location.host : `${customDc.host}:${customDc.port}`;
+      chosenServer = `${protocol}://${host}/apiw1`;
     } else if(Modes.ssl || !Modes.http) {
       const suffix = getTelegramConnectionSuffix(connectionType);
       const subdomain = this.sslSubdomains[dcId - 1] + suffix;
